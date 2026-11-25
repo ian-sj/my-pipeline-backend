@@ -1,40 +1,59 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 4400;
-const DB_FILE = path.join(__dirname, 'pipeline-data.json');
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-function loadDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    const initial = {
-      campaigns: [
-        { id: 'general', title: 'All Campaigns', brand: 'General' },
-        { id: 'q4-ugc', title: 'Q4 UGC Creators', brand: 'Brand Launch' },
-        { id: 'tech-review', title: 'Tech & SaaS Reviewers', brand: 'Partner' }
-      ],
-      stages: [
-        { id: 'sourced', name: 'Sourced', order: 1 },
-        { id: 'contacted', name: 'Contacted', order: 2 },
-        { id: 'negotiating', name: 'Negotiating', order: 3 },
-        { id: 'onboarded', name: 'Onboarded', order: 4 }
-      ],
-      leads: []
-    };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
-    return initial;
+// MongoDB Connection Setup
+const uri = process.env.MONGODB_URI;
+let db;
+
+async function connectDB() {
+  if (!uri) {
+    console.error('❌ MONGODB_URI environment variable is missing!');
+    process.exit(1);
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  try {
+    const client = new MongoClient(uri);
+    await client.connect();
+    db = client.db('ian_sourcing'); // Database name
+    console.log('✅ Connected successfully to MongoDB Atlas');
+    
+    // Initialize default collections/documents if empty
+    await initializeDefaults();
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  }
 }
 
-function saveDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+async function initializeDefaults() {
+  const campaignsCol = db.collection('campaigns');
+  const count = await campaignsCol.countDocuments();
+  if (count === 0) {
+    await campaignsCol.insertMany([
+      { id: 'general', title: 'All Campaigns', brand: 'General' },
+      { id: 'q4-ugc', title: 'Q4 UGC Creators', brand: 'Brand Launch' },
+      { id: 'tech-review', title: 'Tech & SaaS Reviewers', brand: 'Partner' }
+    ]);
+  }
+
+  const stagesCol = db.collection('stages');
+  const stageCount = await stagesCol.countDocuments();
+  if (stageCount === 0) {
+    await stagesCol.insertMany([
+      { id: 'sourced', name: 'Sourced', order: 1 },
+      { id: 'contacted', name: 'Contacted', order: 2 },
+      { id: 'negotiating', name: 'Negotiating', order: 3 },
+      { id: 'onboarded', name: 'Onboarded', order: 4 }
+    ]);
+  }
 }
 
 function detectPlatform(urlStr) {
@@ -58,137 +77,206 @@ const checkAuth = (req, res, next) => {
 };
 
 app.get('/me', checkAuth, (req, res) => {
-  res.json({ admin: { name: 'My Pipeline', email: 'local@creatorscout' } });
+  res.json({ admin: { name: 'Ian Sourcing', email: 'local@iansourcing' } });
 });
 
-app.get('/campaigns', checkAuth, (req, res) => {
-  const db = loadDB();
-  res.json({ campaigns: db.campaigns });
+app.get('/campaigns', checkAuth, async (req, res) => {
+  try {
+    const campaigns = await db.collection('campaigns').find({}).toArray();
+    res.json({ campaigns });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.get('/stages', checkAuth, (req, res) => {
-  const db = loadDB();
-  res.json({ stages: db.stages });
+// New Campaign Creation Endpoint
+app.post('/api/campaigns', async (req, res) => {
+  try {
+    const { title, brand } = req.body;
+    if (!title) return res.status(400).json({ error: 'Campaign title is required' });
+
+    const newCampaign = {
+      id: 'camp_' + Date.now(),
+      title,
+      brand: brand || 'General'
+    };
+
+    await db.collection('campaigns').insertOne(newCampaign);
+    res.json({ campaign: newCampaign });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.get('/lookup', checkAuth, (req, res) => {
+app.get('/stages', checkAuth, async (req, res) => {
+  try {
+    const stages = await db.collection('stages').find({}).sort({ order: 1 }).toArray();
+    res.json({ stages });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/lookup', checkAuth, async (req, res) => {
   const { url, handle } = req.query;
   const platform = detectPlatform(url || '');
   if (!platform) return res.status(400).json({ error: 'Unsupported URL' });
 
-  const db = loadDB();
   const cleanHandle = (handle || '').replace(/^@/, '').toLowerCase();
-  const lead = db.leads.find(
-    (l) => l.platform === platform && (l.handle.toLowerCase() === cleanHandle || l.profile_url === url)
-  );
+  
+  try {
+    const lead = await db.collection('leads').findOne({
+      platform,
+      $or: [
+        ...(cleanHandle ? [{ handle: new RegExp(`^${cleanHandle}$`, 'i') }] : []),
+        ...(url ? [{ profile_url: url }] : [])
+      ]
+    });
 
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const allLeads = await db.collection('leads').find({}).toArray();
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-  const elsewhere = cleanHandle
-    ? db.leads
-        .filter((l) => l.handle.toLowerCase() === cleanHandle && l.platform !== platform)
-        .map((l) => ({
-          handle: l.handle,
-          platform: l.platform,
-          stage: l.stage,
-          pipeline_url: `${baseUrl}/`
-        }))
-    : [];
+    const elsewhere = cleanHandle
+      ? allLeads
+          .filter((l) => l.handle.toLowerCase() === cleanHandle && l.platform !== platform)
+          .map((l) => ({
+            handle: l.handle,
+            platform: l.platform,
+            stage: l.stage,
+            pipeline_url: `${baseUrl}/`
+          }))
+      : [];
 
-  const campaignObj = lead ? db.campaigns.find((c) => c.id === lead.campaignId) : null;
+    let campaignObj = null;
+    if (lead) {
+      campaignObj = await db.collection('campaigns').findOne({ id: lead.campaignId });
+    }
 
-  res.json({
-    resolved: Boolean(cleanHandle),
-    parsed: { platform, handle: cleanHandle },
-    lead: lead
-      ? {
-          ...lead,
-          campaign: campaignObj || { id: 'general', title: 'All Campaigns', brand: 'General' },
-          pipeline_url: `${baseUrl}/`
-        }
-      : null,
-    elsewhere
-  });
+    res.json({
+      resolved: Boolean(cleanHandle),
+      parsed: { platform, handle: cleanHandle },
+      lead: lead
+        ? {
+            ...lead,
+            campaign: campaignObj || { id: 'general', title: 'All Campaigns', brand: 'General' },
+            pipeline_url: `${baseUrl}/`
+          }
+        : null,
+      elsewhere
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.post('/source', checkAuth, (req, res) => {
+app.post('/source', checkAuth, async (req, res) => {
   const { url, note, page, campaignId, stageId, manualEmail } = req.body;
   const platform = detectPlatform(url || '');
   if (!platform) return res.status(400).json({ error: 'Unsupported creator URL' });
 
-  const db = loadDB();
   const handle = (page?.handle || '').replace(/^@/, '') || 'unknown';
-  const existing = db.leads.find(
-    (l) => l.platform === platform && l.handle.toLowerCase() === handle.toLowerCase()
-  );
-
   const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-  if (existing) {
-    const campaignObj = db.campaigns.find((c) => c.id === existing.campaignId);
-    return res.json({
-      created: false,
-      lead: { ...existing, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
+  try {
+    const existing = await db.collection('leads').findOne({
+      platform,
+      handle: new RegExp(`^${handle}$`, 'i')
     });
+
+    if (existing) {
+      const campaignObj = await db.collection('campaigns').findOne({ id: existing.campaignId });
+      return res.json({
+        created: false,
+        lead: { ...existing, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
+      });
+    }
+
+    const finalEmail = manualEmail || page?.detected_emails?.[0] || '';
+
+    const newLead = {
+      id: 'lead_' + Date.now(),
+      profile_url: url,
+      handle,
+      platform,
+      name: page?.name || handle,
+      followers: page?.followers || null,
+      avatar_url: page?.avatar_url || '',
+      bio: page?.bio || '',
+      links: page?.links || [],
+      email: finalEmail,
+      email_lookup: { status: finalEmail ? 'done' : 'running' },
+      campaignId: campaignId || 'general',
+      stage: stageId || 'sourced',
+      note: note || '',
+      created_at: new Date().toISOString(),
+      created_by: { name: 'You' }
+    };
+
+    await db.collection('leads').insertOne(newLead);
+
+    const campaignObj = await db.collection('campaigns').findOne({ id: newLead.campaignId });
+    res.json({
+      created: true,
+      lead: { ...newLead, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
   }
+});
 
-  const finalEmail = manualEmail || page?.detected_emails?.[0] || '';
+app.get('/leads', checkAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit || '50', 10);
+    const leads = await db.collection('leads').find({}).sort({ created_at: -1 }).limit(limit).toArray();
+    res.json({ leads });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
-  const newLead = {
-    id: 'lead_' + Date.now(),
-    profile_url: url,
-    handle,
-    platform,
-    name: page?.name || handle,
-    followers: page?.followers || null,
-    avatar_url: page?.avatar_url || '',
-    bio: page?.bio || '',
-    links: page?.links || [],
-    email: finalEmail,
-    email_lookup: { status: finalEmail ? 'done' : 'running' },
-    campaignId: campaignId || 'general',
-    stage: stageId || 'sourced',
-    note: note || '',
-    created_at: new Date().toISOString(),
-    created_by: { name: 'You' }
-  };
+app.get('/api/board', async (req, res) => {
+  try {
+    const campaigns = await db.collection('campaigns').find({}).toArray();
+    const stages = await db.collection('stages').find({}).sort({ order: 1 }).toArray();
+    const leads = await db.collection('leads').find({}).sort({ created_at: -1 }).toArray();
+    res.json({ campaigns, stages, leads });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
-  db.leads.unshift(newLead);
-  saveDB(db);
+app.patch('/api/leads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    delete updates._id; // Prevent updating MongoDB's internal ID
 
-  const campaignObj = db.campaigns.find((c) => c.id === newLead.campaignId);
-  res.json({
-    created: true,
-    lead: { ...newLead, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
+    const result = await db.collection('leads').findOneAndUpdate(
+      { id: id },
+      { $set: updates },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) return res.status(404).json({ error: 'Not found' });
+    res.json({ lead: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/leads/:id', async (req, res) => {
+  try {
+    const result = await db.collection('leads').deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Start server only after DB connection succeeds
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Ian Sourcing Pipeline & Board running at: http://localhost:${PORT}\n`);
   });
-});
-
-app.get('/leads', checkAuth, (req, res) => {
-  const db = loadDB();
-  const limit = parseInt(req.query.limit || '50', 10);
-  res.json({ leads: db.leads.slice(0, limit) });
-});
-
-app.get('/api/board', (req, res) => {
-  res.json(loadDB());
-});
-
-app.patch('/api/leads/:id', (req, res) => {
-  const db = loadDB();
-  const lead = db.leads.find((l) => l.id === req.params.id);
-  if (!lead) return res.status(404).json({ error: 'Not found' });
-  Object.assign(lead, req.body);
-  saveDB(db);
-  res.json({ lead });
-});
-
-app.delete('/api/leads/:id', (req, res) => {
-  const db = loadDB();
-  db.leads = db.leads.filter((l) => l.id !== req.params.id);
-  saveDB(db);
-  res.json({ ok: true });
-});
-
-app.listen(PORT, () => {
-  console.log(`\n🚀 CreatorScout Pipeline & Board running at: http://localhost:${PORT}\n`);
 });
