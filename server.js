@@ -82,6 +82,8 @@ app.get('/lookup', checkAuth, (req, res) => {
     (l) => l.platform === platform && (l.handle.toLowerCase() === cleanHandle || l.profile_url === url)
   );
 
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+
   const elsewhere = cleanHandle
     ? db.leads
         .filter((l) => l.handle.toLowerCase() === cleanHandle && l.platform !== platform)
@@ -89,7 +91,7 @@ app.get('/lookup', checkAuth, (req, res) => {
           handle: l.handle,
           platform: l.platform,
           stage: l.stage,
-          pipeline_url: `http://localhost:${PORT}/`
+          pipeline_url: `${baseUrl}/`
         }))
     : [];
 
@@ -102,7 +104,7 @@ app.get('/lookup', checkAuth, (req, res) => {
       ? {
           ...lead,
           campaign: campaignObj || { id: 'general', title: 'All Campaigns', brand: 'General' },
-          pipeline_url: `http://localhost:${PORT}/`
+          pipeline_url: `${baseUrl}/`
         }
       : null,
     elsewhere
@@ -120,11 +122,13 @@ app.post('/source', checkAuth, (req, res) => {
     (l) => l.platform === platform && l.handle.toLowerCase() === handle.toLowerCase()
   );
 
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+
   if (existing) {
     const campaignObj = db.campaigns.find((c) => c.id === existing.campaignId);
     return res.json({
       created: false,
-      lead: { ...existing, campaign: campaignObj, pipeline_url: `http://localhost:${PORT}/` }
+      lead: { ...existing, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
     });
   }
 
@@ -155,7 +159,7 @@ app.post('/source', checkAuth, (req, res) => {
   const campaignObj = db.campaigns.find((c) => c.id === newLead.campaignId);
   res.json({
     created: true,
-    lead: { ...newLead, campaign: campaignObj, pipeline_url: `http://localhost:${PORT}/` }
+    lead: { ...newLead, campaign: campaignObj, pipeline_url: `${baseUrl}/` }
   });
 });
 
