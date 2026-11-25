@@ -1,0 +1,87 @@
+{
+  "campaigns": [
+    {
+      "id": "general",
+      "title": "All Campaigns",
+      "brand": "General"
+    },
+    {
+      "id": "q4-ugc",
+      "title": "Q4 UGC Creators",
+      "brand": "Brand Launch"
+    },
+    {
+      "id": "tech-review",
+      "title": "Tech & SaaS Reviewers",
+      "brand": "Partner"
+    }
+  ],
+  "stages": [
+    {
+      "id": "sourced",
+      "name": "Sourced",
+      "order": 1
+    },
+    {
+      "id": "contacted",
+      "name": "Contacted",
+      "order": 2
+    },
+    {
+      "id": "negotiating",
+      "name": "Negotiating",
+      "order": 3
+    },
+    {
+      "id": "onboarded",
+      "name": "Onboarded",
+      "order": 4
+    }
+  ],
+  "leads": [
+    {
+      "id": "lead_1795644292958",
+      "profile_url": "https://www.instagram.com/thecatarinaedit/?hl=en",
+      "handle": "thecatarinaedit",
+      "platform": "instagram",
+      "name": "Catarina",
+      "followers": 8,
+      "avatar_url": "https://instagram.fdvo1-1.fna.fbcdn.net/v/t51.82787-19/901924447_18088024445409374_8690201973113441077_n.jpg?stp=dst-jpg_s150x150_tt6&_nc_cat=106&_nc_map=urlgen_bucketless&ig_cache_key=GF9GwjVe2MFf9kJAADVL0_GmzJl4bmNDAQAB1501500j-ccb7-5&ccb=7-5&_nc_sid=669407&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLnd3dy4xMDgwLkMzIn0%3D&_nc_ohc=m02G_8PiKvkQ7kNvwFl53QR&_nc_oc=AdpxdYhLS-REoCrzgysmjcOZH-S9RPY0kCNP9VZZk5SR92MqxfKSu6nmFqaskYj-g_w&_nc_zt=24&_nc_ht=instagram.fdvo1-1.fna&_nc_gid=op4z610cqnBKmHDj3_NBbA&_nc_ss=7b7a8&_nc_ct=RQosPBUCFQIAAAA&oh=00_AQS9tfI1-LBcs_yW6yhFv_9YmwbvlUB0Zd0fJyfn-Abg_Q&oe=6B0D3FA1",
+      "bio": "",
+      "links": [],
+      "email": "info.thecatarinaedit@gmail.com",
+      "email_lookup": {
+        "status": "done"
+      },
+      "campaignId": "general",
+      "stage": "sourced",
+      "note": "",
+      "created_at": "2026-11-25T22:04:52.958Z",
+      "created_by": {
+        "name": "You"
+      }
+    },
+    {
+      "id": "lead_1795643639368",
+      "profile_url": "https://www.instagram.com/idagryttercontent/?hl=en",
+      "handle": "idagryttercontent",
+      "platform": "instagram",
+      "name": "Ida Grytter",
+      "followers": 68,
+      "avatar_url": "https://instagram.fdvo1-1.fna.fbcdn.net/v/t51.82787-19/774268075_18087310130291549_1786722474037951334_n.jpg?stp=dst-jpg_s150x150_tt6&_nc_cat=106&_nc_map=urlgen_bucketless&ig_cache_key=GKtkJi5dI0IPUEJAAGY7PamftssYbmNDAQAB1501500j-ccb7-5&ccb=7-5&_nc_sid=669407&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLnd3dy4xMDgwLkMzIn0%3D&_nc_ohc=Pedkbv6PokwQ7kNvwFNLoq7&_nc_oc=Ado4LQSbFd_Kh5iWUJcSFZwvk2K5Ltac6eB6bTEidO0pVAesuHFGNT0V4zMQ6YcM4Hs&_nc_zt=24&_nc_ht=instagram.fdvo1-1.fna&_nc_gid=sgpvusObEhWxfTSZpdNz0A&_nc_ss=7b7a8&_nc_ct=RQosPBUCFQIAAAA&oh=00_AQQ5sw1v-yBkj6kCcIVytUJGY3BuTbJ6BBF7oHUrpZf_KQ&oe=6B0D1F68",
+      "bio": "",
+      "links": [],
+      "email": "",
+      "email_lookup": {
+        "status": "done"
+      },
+      "campaignId": "general",
+      "stage": "sourced",
+      "note": "",
+      "created_at": "2026-11-25T21:53:59.368Z",
+      "created_by": {
+        "name": "You"
+      }
+    }
+  ]
+}
