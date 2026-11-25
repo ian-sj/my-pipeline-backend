@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CreatorScout — Creator Sourcing CRM & Pipeline</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #181b21;
+      --surface-hover: #21252e;
+      --border: #2a2f3a;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --ok: #10b981;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+    .badge { background: var(--accent); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 99px; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    select, input, button {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+    button.primary:hover { background: var(--accent-hover); }
+    button.secondary { cursor: pointer; }
+    button.secondary:hover { background: var(--surface-hover); }
+    .stats {
+      display: flex;
+      gap: 16px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stats strong { color: var(--text); }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+      padding: 20px 24px;
+      align-items: start;
+    }
+    .column {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 420px;
+    }
+    .col-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .count {
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+    .card:hover { border-color: var(--accent); }
+    .card-top { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--surface-hover);
+      object-fit: cover;
+      flex: none;
+    }
+    .creator-name { font-weight: 600; font-size: 14px; }
+    .creator-meta { font-size: 12px; color: var(--muted); }
+    .creator-meta a { color: #818cf8; text-decoration: none; }
+    .email-pill {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 8px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--ok);
+      border-radius: 4px;
+      font-size: 12px;
+      user-select: all;
+    }
+    .note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 6px 8px;
+      border-radius: 5px;
+    }
+    .card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      gap: 6px;
+    }
+    .card-actions select { padding: 4px 6px; font-size: 12px; }
+    .del-btn { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; }
+    .del-btn:hover { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>CreatorScout Pipeline</span>
+      <span class="badge">CRM Board</span>
+    </div>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search handle, name, email..." />
+      <select id="campaignFilter">
+        <option value="all">All Campaigns</option>
+      </select>
+      <button class="secondary" onclick="createCampaign()">+ New Campaign</button>
+      <button class="primary" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+  <main class="board" id="board"></main>
+
+  <script>
+    let state = { campaigns: [], stages: [], leads: [] };
+
+    function fmtNum(n) {
+      if (!n) return '';
+      if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+      return n;
+    }
+
+    async function load() {
+      const res = await fetch('/api/board');
+      state = await res.json();
+
+      const sel = document.getElementById('campaignFilter');
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="all">All Campaigns</option>';
+      state.campaigns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.brand} — ${c.title}`;
+        sel.appendChild(opt);
+      });
+      if ([...sel.options].some(o => o.value === currentVal)) sel.value = currentVal;
+
+      render();
+    }
+
+    function render() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const camp = document.getElementById('campaignFilter').value;
+
+      const filtered = state.leads.filter(l => {
+        if (camp !== 'all' && l.campaignId !== camp) return false;
+        if (q) {
+          const hay = `${l.name} ${l.handle} ${l.email} ${l.platform} ${l.note}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const withEmail = filtered.filter(l => l.email).length;
+      document.getElementById('stats').innerHTML = `
+        <span>Total Creators: <strong>${filtered.length}</strong></span>
+        <span>Emails Found: <strong>${withEmail}</strong></span>
+        <span>Campaigns: <strong>${state.campaigns.length}</strong></span>
+      `;
+
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+
+      state.stages.forEach(stage => {
+        const colLeads = filtered.filter(l => l.stage === stage.id);
+        const col = document.createElement('section');
+        col.className = 'column';
+        col.innerHTML = `
+          <div class="col-header">
+            <span>${stage.name}</span>
+            <span class="count">${colLeads.length}</span>
+          </div>
+        `;
+
+        colLeads.forEach(lead => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          const stageOpts = state.stages
+            .map(s => `<option value="${s.id}" ${s.id === lead.stage ? 'selected' : ''}>${s.name}</option>`)
+            .join('');
+
+          card.innerHTML = `
+            <div class="card-top">
+              <img class="avatar" src="${lead.avatar_url || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%23374151%22/></svg>'}" onerror="this.style.display='none'" />
+              <div>
+                <div class="creator-name">${lead.name || lead.handle}</div>
+                <div class="creator-meta">
+                  <a href="${lead.profile_url}" target="_blank">@${lead.handle}</a> &middot; ${lead.platform}
+                  ${lead.followers ? `&middot; ${fmtNum(lead.followers)}` : ''}
+                </div>
+              </div>
+            </div>
+            ${lead.email ? `<div class="email-pill">&#9993; ${lead.email}</div>` : ''}
+            ${lead.note ? `<div class="note">${lead.note}</div>` : ''}
+            <div class="card-actions">
+              <select onchange="moveStage('${lead.id}', this.value)">${stageOpts}</select>
+              <button class="del-btn" onclick="deleteLead('${lead.id}')">Remove</button>
+            </div>
+          `;
+          col.appendChild(card);
+        });
+
+        board.appendChild(col);
+      });
+    }
+
+    async function moveStage(id, stage) {
+      await fetch(`/api/leads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage })
+      });
+      load();
+    }
+
+    async function deleteLead(id) {
+      if (!confirm('Remove this creator from your pipeline?')) return;
+      await fetch(`/api/leads/${id}`, { method: 'DELETE' });
+      load();
+    }
+
+    async function createCampaign() {
+      const title = prompt('Campaign title (e.g., Summer Skincare Launch):');
+      if (!title) return;
+      const brand = prompt('Brand name (optional):') || 'Custom';
+      await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, brand })
+      });
+      load();
+    }
+
+    function exportCSV() {
+      const headers = ['Name', 'Handle', 'Platform', 'Followers', 'Email', 'Stage', 'Campaign', 'Profile URL', 'Note', 'Date Added'];
+      const rows = state.leads.map(l => [
+        l.name, l.handle, l.platform, l.followers || '', l.email || '', l.stage, l.campaignId, l.profile_url, (l.note || '').replace(/\n/g, ' '), l.created_at
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `creator-pipeline-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('campaignFilter').addEventListener('change', render);
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>
